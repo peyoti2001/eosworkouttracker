@@ -1,0 +1,17 @@
+{
+  "name": "EoS Workout Tracker",
+  "short_name": "Workout",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b0d10",
+  "theme_color": "#0aa6a6",
+  "description": "5-day EoS-friendly workout tracker (PWA). Track sets, reps, and progress.",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

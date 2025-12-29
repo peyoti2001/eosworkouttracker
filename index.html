@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0aa6a6" />
+  <title>EoS Workout Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">🏋️‍♂️</div>
+      <div class="brandText">
+        <div class="title">EoS Workout Tracker</div>
+        <div class="subtitle">5-day plan • Lean + lose ~10 lb (trackable, editable)</div>
+      </div>
+    </div>
+
+    <div class="topActions">
+      <button id="installBtn" class="btn ghost" hidden>Install</button>
+      <button id="exportBtn" class="btn ghost">Export</button>
+      <a class="btn ghost" href="progress.html">Progress</a>
+      <label class="btn ghost fileLabel">
+        Import
+        <input id="importFile" type="file" accept="application/json" hidden>
+      </label>
+      <button id="resetAllBtn" class="btn danger">Reset</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card hero">
+      <div class="heroLeft">
+        <div class="heroRow">
+          <div class="pill">EoS-friendly machines + free weights</div>
+          <div class="pill">Progressive overload</div>
+          <div class="pill">Warm-up + cardio finishers</div>
+        </div>
+        <div class="heroGrid">
+          <div class="mini">
+            <div class="miniLabel">Today</div>
+            <div class="miniValue" id="todayLabel">Day 1</div>
+          </div>
+          <div class="mini">
+            <div class="miniLabel">Workout status</div>
+            <div class="miniValue" id="workoutStatus">Not started</div>
+          </div>
+          <div class="mini">
+            <div class="miniLabel">Week progress</div>
+            <div class="miniValue"><span id="weekDone">0</span>/5</div>
+          </div>
+        </div>
+
+        <div class="heroButtons">
+          <button id="beginBtn" class="btn primary">Begin workout</button>
+          <button id="finishBtn" class="btn" disabled>Finish & save</button>
+          <button id="restBtn" class="btn ghost" disabled>Rest timer</button>
+        </div>
+
+        <details class="coachNotes">
+          <summary>Coach notes for leaning out (quick)</summary>
+          <ul>
+            <li><b>Calories:</b> aim for a ~300–500/day deficit (slow + sustainable). Keep weekends honest.</li>
+            <li><b>Protein:</b> hit a high-protein target daily (roughly 0.7–1.0g per lb bodyweight).</li>
+            <li><b>Steps:</b> 8–10k/day; add a 10–20 min incline walk after 2–3 workouts.</li>
+            <li><b>Progress:</b> add 1 rep or 2.5–5 lb when you hit top reps with good form.</li>
+            <li><b>Effort:</b> last 1–3 reps should feel challenging (RPE ~7–9), not sloppy.</li>
+          </ul>
+        </details>
+      </div>
+
+      <div class="heroRight">
+        <div class="card inner">
+          <div class="innerTitle">Quick log</div>
+          <div class="logGrid">
+            <label class="field">
+              <span>Body weight (optional)</span>
+              <input id="bwInput" inputmode="decimal" placeholder="e.g., 185.0" />
+            </label>
+            <label class="field">
+              <span>Steps today (optional)</span>
+              <input id="stepsInput" inputmode="numeric" placeholder="e.g., 9000" />
+            </label>
+            <label class="field">
+              <span>Cardio minutes (optional)</span>
+              <input id="cardioInput" inputmode="numeric" placeholder="e.g., 15" />
+            </label>
+            <label class="field">
+              <span>Notes</span>
+              <input id="notesInput" placeholder="sleep, stress, energy..." />
+            </label>
+          </div>
+          <div class="small muted">
+            Stored on your device (LocalStorage). Export/Import to move between phone & laptop.
+          </div>
+        </div>
+
+        <div class="card inner">
+          <div class="innerTitle">Rest timer</div>
+          <div class="timerRow">
+            <div class="timerValue" id="timerValue">00:00</div>
+            <div class="timerBtns">
+              <button class="btn" id="t60">60s</button>
+              <button class="btn" id="t90">90s</button>
+              <button class="btn" id="t120">120s</button>
+              <button class="btn ghost" id="tStop">Stop</button>
+            </div>
+          </div>
+          <div class="small muted">Tip: 90–150s for compounds, 45–75s for accessories.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="tabs" id="dayTabs"></div>
+      <div class="divider"></div>
+      <div id="dayMeta" class="dayMeta"></div>
+      <div id="exerciseList" class="exerciseList"></div>
+    </section>
+
+    <section class="card">
+      <div class="innerTitle">Recent workouts</div>
+      <div id="history" class="history"></div>
+    </section>
+
+    <footer class="footer">
+      <div class="small muted">
+        Built as a simple, installable web app (PWA). Host it free on GitHub Pages / Netlify / Vercel.
+      </div>
+    </footer>
+  </main>
+
+  <dialog id="exportDialog" class="dialog">
+    <form method="dialog">
+      <div class="dialogTitle">Export data</div>
+      <p class="small muted">Copy the JSON below or download it as a file.</p>
+      <textarea id="exportText" spellcheck="false"></textarea>
+      <div class="dialogBtns">
+        <button id="downloadExportBtn" class="btn primary" value="download">Download JSON</button>
+        <button class="btn" value="close">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="restDialog" class="dialog">
+    <form method="dialog">
+      <div class="dialogTitle">Rest timer</div>
+      <p class="small muted">Use quick buttons or close it and keep training — timer keeps running.</p>
+      <div class="timerRow big">
+        <div class="timerValue" id="timerValue2">00:00</div>
+      </div>
+      <div class="timerBtns">
+        <button class="btn" id="t60b" value="noop">60s</button>
+        <button class="btn" id="t90b" value="noop">90s</button>
+        <button class="btn" id="t120b" value="noop">120s</button>
+        <button class="btn ghost" id="tStopb" value="noop">Stop</button>
+      </div>
+      <div class="dialogBtns">
+        <button class="btn primary" value="close">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

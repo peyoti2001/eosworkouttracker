@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Progress • EoS Workout Tracker</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">📈</div>
+      <div>
+        <div class="title">Progress</div>
+        <div class="subtitle">Charts from your saved workouts (stored locally on this iPhone)</div>
+      </div>
+    </div>
+
+    <div class="topActions">
+      <a class="btn ghost" href="index.html">← Back</a>
+      <button class="btn primary" id="refreshBtn">Refresh</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <div class="heroRow">
+        <span class="pill" id="summaryPill">Loading…</span>
+        <span class="pill" id="workoutsPill">Workouts: —</span>
+        <span class="pill" id="lastPill">Last: —</span>
+      </div>
+
+      <div class="small muted">
+        Tip: graphs update when you hit <b>Finish &amp; save</b> on workout days.
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="innerTitle">Bodyweight (lb)</div>
+      <canvas id="bwChart" height="160"></canvas>
+      <div class="small muted" id="bwHint"></div>
+    </section>
+
+    <section class="hero">
+      <div class="card">
+        <div class="innerTitle">Workout completion (%)</div>
+        <canvas id="completionChart" height="160"></canvas>
+        <div class="small muted" id="completionHint"></div>
+      </div>
+
+      <div class="card">
+        <div class="innerTitle">Cardio minutes</div>
+        <canvas id="cardioChart" height="160"></canvas>
+        <div class="small muted" id="cardioHint"></div>
+      </div>
+    </section>
+
+    <section class="hero">
+      <div class="card">
+        <div class="innerTitle">Steps</div>
+        <canvas id="stepsChart" height="160"></canvas>
+        <div class="small muted" id="stepsHint"></div>
+      </div>
+
+      <div class="card">
+        <div class="innerTitle">Training volume — Total reps</div>
+        <canvas id="repsChart" height="160"></canvas>
+        <div class="small muted" id="repsHint"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="innerTitle">Training volume — Tonnage (weight × reps)</div>
+      <canvas id="tonnageChart" height="160"></canvas>
+      <div class="small muted" id="tonnageHint"></div>
+    </section>
+
+    <section class="card">
+      <div class="innerTitle">Notes</div>
+      <div class="small muted">
+        Everything is stored on-device (LocalStorage). If you delete Safari website data, your history and graphs reset.
+      </div>
+    </section>
+  </main>
+
+  <script src="progress.js"></script>
+</body>
+</html>
