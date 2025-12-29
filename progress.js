@@ -1,11 +1,6 @@
-// Progress graphs (LocalStorage only)
-// Reads workout history saved by app.js and renders simple canvas charts.
-// No external libraries needed.
-
 const STORAGE_KEY = "eos_workout_tracker_v1";
 
-const refreshBtn = document.getElementById("refreshBtn");
-refreshBtn?.addEventListener("click", () => location.reload());
+document.getElementById("refreshBtn")?.addEventListener("click", () => location.reload());
 
 function loadState(){
   try{
@@ -20,7 +15,6 @@ function toNumber(x){
   if(x == null) return null;
   const s = String(x).trim();
   if(!s) return null;
-  // keep digits, dot, minus
   const cleaned = s.replace(/[^0-9.\-]/g,"");
   if(!cleaned) return null;
   const n = Number(cleaned);
@@ -45,180 +39,133 @@ function setText(id, text){
   if(el) el.textContent = text;
 }
 
-function niceRange(min, max){
-  if(min === max){
-    const pad = Math.abs(min) * 0.1 + 1;
-    return [min - pad, max + pad];
-  }
-  const span = max - min;
-  const pad = span * 0.08;
-  return [min - pad, max + pad];
-}
-
-function drawChart(canvasId, labels, data, opts){
+/* Simple offline line chart renderer (no libraries) */
+function drawLineChart(canvasId, labels, values, opts={}){
   const canvas = document.getElementById(canvasId);
   if(!canvas) return;
-
   const ctx = canvas.getContext("2d");
-  const w = canvas.width;
-  const h = canvas.height;
 
-  // HiDPI for iPhone
+  // handle retina
   const dpr = window.devicePixelRatio || 1;
-  canvas.style.width = w + "px";
-  canvas.style.height = h + "px";
-  canvas.width = Math.floor(w * dpr);
-  canvas.height = Math.floor(h * dpr);
+  const cssW = canvas.clientWidth || canvas.width;
+  const cssH = canvas.height;
+  canvas.width = Math.floor(cssW * dpr);
+  canvas.height = Math.floor(cssH * dpr);
   ctx.scale(dpr, dpr);
 
-  const padL = 44, padR = 12, padT = 12, padB = 28;
-  const plotW = w - padL - padR;
-  const plotH = h - padT - padB;
+  const W = cssW, H = cssH;
+  ctx.clearRect(0,0,W,H);
 
   // Background
-  ctx.clearRect(0,0,w,h);
-  ctx.fillStyle = opts.bg || "rgba(255,255,255,0.0)";
-  ctx.fillRect(0,0,w,h);
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillRect(0,0,W,H);
 
-  // Extract numeric points
-  const points = data.map((v, i) => ({v, i})).filter(p => typeof p.v === "number" && Number.isFinite(p.v));
-  if(points.length < 2){
-    // Draw "not enough data"
-    ctx.fillStyle = opts.text || "#52627B";
-    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial";
-    ctx.fillText("Not enough data yet", padL, padT + 18);
+  const pad = 28;
+  const plotW = W - pad*2;
+  const plotH = H - pad*2;
+
+  const xs = values
+    .map((v,i)=>({v, i}))
+    .filter(p => typeof p.v === "number" && Number.isFinite(p.v));
+
+  // No data
+  if(xs.length === 0){
+    ctx.fillStyle = "rgba(13,19,33,0.55)";
+    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto";
+    ctx.fillText("No data yet", pad, H/2);
     return;
   }
 
-  let min = Math.min(...points.map(p => p.v));
-  let max = Math.max(...points.map(p => p.v));
-  [min, max] = niceRange(min, max);
+  let minV = Math.min(...xs.map(p=>p.v));
+  let maxV = Math.max(...xs.map(p=>p.v));
+  if(minV === maxV){ minV -= 1; maxV += 1; }
 
-  // Grid + axes
-  const gridLines = 4;
-  ctx.strokeStyle = opts.grid || "rgba(13,19,33,.10)";
+  const color = opts.color || "#3B82F6";
+  const grid = "rgba(13,19,33,0.08)";
+  const text = "rgba(13,19,33,0.55)";
+
+  function xAt(i){
+    if(labels.length <= 1) return pad + plotW/2;
+    return pad + (i/(labels.length-1))*plotW;
+  }
+  function yAt(v){
+    const t = (v - minV) / (maxV - minV);
+    return pad + (1 - t) * plotH;
+  }
+
+  // Grid lines (3)
+  ctx.strokeStyle = grid;
   ctx.lineWidth = 1;
-
-  for(let g=0; g<=gridLines; g++){
-    const y = padT + (plotH * g / gridLines);
+  for(let k=0;k<=2;k++){
+    const y = pad + (k/2)*plotH;
     ctx.beginPath();
-    ctx.moveTo(padL, y);
-    ctx.lineTo(padL + plotW, y);
+    ctx.moveTo(pad, y);
+    ctx.lineTo(pad+plotW, y);
     ctx.stroke();
   }
 
-  // Y labels
-  ctx.fillStyle = opts.muted || "#52627B";
-  ctx.font = "11px system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial";
-  for(let g=0; g<=gridLines; g++){
-    const value = max - (max - min) * (g / gridLines);
-    const y = padT + (plotH * g / gridLines);
-    ctx.fillText(formatValue(value, opts), 6, y + 4);
-  }
-
-  // X labels (every ~3-5 points)
-  const step = Math.max(1, Math.round(labels.length / 5));
-  for(let i=0; i<labels.length; i+=step){
-    const x = padL + (plotW * (i / (labels.length - 1)));
-    ctx.fillText(labels[i], x - 10, h - 10);
-  }
+  // Axes labels (min/max)
+  ctx.fillStyle = text;
+  ctx.font = "11px system-ui, -apple-system, Segoe UI, Roboto";
+  ctx.fillText(String(maxV.toFixed(0)), 6, pad+4);
+  ctx.fillText(String(minV.toFixed(0)), 6, pad+plotH);
 
   // Line
-  const color = opts.color || "#3B82F6";
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
-
   ctx.beginPath();
+
   let started = false;
-
-  for(let i=0; i<data.length; i++){
-    const v = data[i];
-    if(!(typeof v === "number" && Number.isFinite(v))) continue;
-
-    const x = padL + (plotW * (i / (labels.length - 1)));
-    const t = (v - min) / (max - min);
-    const y = padT + plotH - (t * plotH);
-
+  for(let i=0;i<labels.length;i++){
+    const v = values[i];
+    if(typeof v !== "number" || !Number.isFinite(v)) continue;
+    const x = xAt(i);
+    const y = yAt(v);
     if(!started){
-      ctx.moveTo(x, y);
+      ctx.moveTo(x,y);
       started = true;
     }else{
-      ctx.lineTo(x, y);
+      ctx.lineTo(x,y);
     }
   }
   ctx.stroke();
 
-  // Fill under line (subtle)
-  ctx.lineTo(padL + plotW, padT + plotH);
-  ctx.lineTo(padL, padT + plotH);
-  ctx.closePath();
-  ctx.fillStyle = hexToRgba(color, 0.12);
-  ctx.fill();
-
   // Points
   ctx.fillStyle = color;
-  for(let i=0; i<data.length; i++){
-    const v = data[i];
-    if(!(typeof v === "number" && Number.isFinite(v))) continue;
-
-    const x = padL + (plotW * (i / (labels.length - 1)));
-    const t = (v - min) / (max - min);
-    const y = padT + plotH - (t * plotH);
-
+  for(let i=0;i<labels.length;i++){
+    const v = values[i];
+    if(typeof v !== "number" || !Number.isFinite(v)) continue;
+    const x = xAt(i);
+    const y = yAt(v);
     ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.arc(x,y,3,0,Math.PI*2);
     ctx.fill();
   }
-}
 
-function formatValue(v, opts){
-  if(opts.kind === "int") return String(Math.round(v));
-  if(opts.kind === "pct") return String(Math.round(v)) + "%";
-  if(opts.kind === "tonnage") return compact(Math.round(v));
-  if(opts.kind === "lb") return (Math.round(v * 10) / 10).toFixed(1);
-  return (Math.round(v * 10) / 10).toFixed(1);
-}
-
-function compact(n){
-  if(!Number.isFinite(n)) return "—";
-  const abs = Math.abs(n);
-  if(abs >= 1_000_000) return (n/1_000_000).toFixed(1) + "M";
-  if(abs >= 1_000) return (n/1_000).toFixed(1) + "k";
-  return String(n);
-}
-
-function hexToRgba(hex, a){
-  const h = hex.replace("#","");
-  const full = h.length === 3 ? h.split("").map(ch => ch+ch).join("") : h;
-  const r = parseInt(full.slice(0,2), 16);
-  const g = parseInt(full.slice(2,4), 16);
-  const b = parseInt(full.slice(4,6), 16);
-  return `rgba(${r},${g},${b},${a})`;
+  // Last label
+  const lastIndex = [...values].map((v,i)=>({v,i})).filter(p=>typeof p.v==="number" && Number.isFinite(p.v)).slice(-1)[0]?.i;
+  if(lastIndex != null){
+    ctx.fillStyle = text;
+    const l = labels[lastIndex] || "";
+    ctx.fillText(l, Math.max(pad, xAt(lastIndex)-12), H-8);
+  }
 }
 
 function run(){
   const state = loadState();
   if(!state || !Array.isArray(state.workouts) || state.workouts.length === 0){
-    setText("summaryPill", "No saved workouts yet. Do a workout → Finish & save.");
+    setText("summaryPill", "No saved workouts yet. Begin workout → Finish & save.");
     setText("workoutsPill", "Workouts: 0");
     setText("lastPill", "Last: —");
-    setText("bwHint", "Add bodyweight in Quick log → BW, then Finish & save.");
-    setText("stepsHint", "Add steps in Quick log → Steps, then Finish & save.");
-    setText("cardioHint", "Add cardio minutes in Quick log → Cardio, then Finish & save.");
-    setText("completionHint", "Completion is based on checked sets.");
-    setText("repsHint", "Reps are summed from your tracked sets (best if you check Done).");
-    setText("tonnageHint", "Tonnage = weight × reps (only when weight is entered).");
-    // Draw empty charts with message
-    drawChart("bwChart", ["—"], [null], {color:"#0AA6A6", kind:"lb"});
-    drawChart("completionChart", ["—"], [null], {color:"#3B82F6", kind:"pct"});
-    drawChart("cardioChart", ["—"], [null], {color:"#F59E0B", kind:"int"});
-    drawChart("stepsChart", ["—"], [null], {color:"#8B5CF6", kind:"int"});
-    drawChart("repsChart", ["—"], [null], {color:"#10B981", kind:"int"});
-    drawChart("tonnageChart", ["—"], [null], {color:"#EF4444", kind:"tonnage"});
+    setText("bwHint", "Add BW in Quick log, then Finish & save.");
+    setText("stepsHint", "Add steps in Quick log, then Finish & save.");
+    setText("cardioHint", "Add cardio minutes, then Finish & save.");
+    setText("completionHint", "Completion uses checked sets.");
+    setText("repsHint", "Volume appears after you log sets (reps).");
+    setText("tonnageHint", "Tonnage appears after you log weights + reps.");
     return;
   }
 
-  // oldest -> newest
   const workouts = [...state.workouts].sort((a,b)=>new Date(a.date)-new Date(b.date));
   const labels = workouts.map(w => fmtDate(w.date));
 
@@ -226,40 +173,35 @@ function run(){
   const steps = workouts.map(w => toNumber(w.quickLog?.steps));
   const cardio = workouts.map(w => toNumber(w.quickLog?.cardio));
   const completion = workouts.map(w => toNumber(w.completion));
-  const reps = workouts.map(w => toNumber(w.volume?.totalReps ?? w.totalReps));
-  const tonnage = workouts.map(w => toNumber(w.volume?.tonnage ?? w.tonnage));
 
-  const bwAvg = avg(bw);
-  const compAvg = avg(completion);
-  const stepsAvg = avg(steps);
-  const cardioAvg = avg(cardio);
-  const repsAvg = avg(reps);
-  const tonnageAvg = avg(tonnage);
+  // These exist for new workouts; older ones may not have them
+  const totalReps = workouts.map(w => toNumber(w.totalReps));
+  const tonnage = workouts.map(w => toNumber(w.tonnage));
 
   const lastW = last(workouts);
   setText("workoutsPill", `Workouts: ${workouts.length}`);
   setText("lastPill", `Last: ${fmtDate(lastW.date)} • ${lastW.dayName || ""}`);
 
   const parts = [];
-  if(bwAvg != null) parts.push(`Avg BW: ${bwAvg.toFixed(1)} lb`);
-  if(compAvg != null) parts.push(`Avg completion: ${compAvg.toFixed(0)}%`);
-  if(repsAvg != null) parts.push(`Avg reps: ${Math.round(repsAvg)}`);
-  if(tonnageAvg != null) parts.push(`Avg tonnage: ${compact(Math.round(tonnageAvg))}`);
+  const bwAvg = avg(bw); if(bwAvg != null) parts.push(`Avg BW: ${bwAvg.toFixed(1)} lb`);
+  const compAvg = avg(completion); if(compAvg != null) parts.push(`Avg completion: ${compAvg.toFixed(0)}%`);
+  const stepsAvg = avg(steps); if(stepsAvg != null) parts.push(`Avg steps: ${stepsAvg.toFixed(0)}`);
+  const cardioAvg = avg(cardio); if(cardioAvg != null) parts.push(`Avg cardio: ${cardioAvg.toFixed(0)} min`);
   setText("summaryPill", parts.length ? parts.join(" • ") : "Progress loaded");
 
-  drawChart("bwChart", labels, bw, {color:"#0AA6A6", kind:"lb"});
-  drawChart("completionChart", labels, completion, {color:"#3B82F6", kind:"pct"});
-  drawChart("cardioChart", labels, cardio, {color:"#F59E0B", kind:"int"});
-  drawChart("stepsChart", labels, steps, {color:"#8B5CF6", kind:"int"});
-  drawChart("repsChart", labels, reps, {color:"#10B981", kind:"int"});
-  drawChart("tonnageChart", labels, tonnage, {color:"#EF4444", kind:"tonnage"});
+  drawLineChart("bwChart", labels, bw, {color:"#0AA6A6"});
+  drawLineChart("completionChart", labels, completion, {color:"#3B82F6"});
+  drawLineChart("stepsChart", labels, steps, {color:"#8B5CF6"});
+  drawLineChart("cardioChart", labels, cardio, {color:"#F59E0B"});
+  drawLineChart("repsChart", labels, totalReps, {color:"#16A34A"});
+  drawLineChart("tonnageChart", labels, tonnage, {color:"#EF4444"});
 
-  setText("bwHint", bwAvg != null ? `Goal: ~0.5–1.0 lb/week loss for a lean cut.` : `No BW entries yet.`);
-  setText("completionHint", compAvg != null ? `Higher completion + consistency = faster progress.` : `No completion data yet.`);
-  setText("stepsHint", stepsAvg != null ? `Steps drive fat loss when consistent.` : `No steps entries yet.`);
-  setText("cardioHint", cardioAvg != null ? `2–4 cardio sessions/week is a great start.` : `No cardio entries yet.`);
-  setText("repsHint", repsAvg != null ? `More reps (with good form) usually = more total work.` : `No rep volume saved yet.`);
-  setText("tonnageHint", tonnageAvg != null ? `Tonnage rises as weights & reps improve.` : `No tonnage saved yet.`);
+  setText("bwHint", bwAvg != null ? "Aim ~0.5–1.0 lb/week loss." : "No BW entries yet.");
+  setText("completionHint", compAvg != null ? "Higher completion + consistency wins." : "No completion data yet.");
+  setText("stepsHint", stepsAvg != null ? "Keep steps consistent for faster fat loss." : "No steps entries yet.");
+  setText("cardioHint", cardioAvg != null ? "2–4 sessions/week is a great start." : "No cardio entries yet.");
+  setText("repsHint", avg(totalReps) != null ? "Total reps per workout." : "Log reps/mark sets to see this.");
+  setText("tonnageHint", avg(tonnage) != null ? "Total (weight×reps) per workout." : "Enter weights + reps to see this.");
 }
 
 run();
